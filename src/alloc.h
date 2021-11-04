@@ -11,7 +11,10 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-#define DEFAULT_SIZE 1024
+#define DEFAULT_SIZE 26
+
+// the size of block and 1 byte variable
+#define MIN_VAR_SIZE (sizeof(struct block) + 1)
 
 struct block
 {
