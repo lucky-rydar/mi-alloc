@@ -4,6 +4,8 @@ size_t free_mem = DEFAULT_SIZE;
 size_t used_mem = 0;
 size_t mem_size = DEFAULT_SIZE;
 uint8_t mem[DEFAULT_SIZE];
+
+// pointer to current offset to free memory
 void* using = mem;
 
 // addres of the last element in mem
@@ -176,4 +178,14 @@ void del(void* p) {
         select_fist_used_for(b);
         block_set_zero(b);
     }
+}
+
+struct mem_info get_mem_info() {
+    struct mem_info ret = {
+        .free_mem = free_mem,
+        .used_mem = used_mem,
+        .size = mem_size,
+        .mem = mem
+    };
+    return ret;
 }

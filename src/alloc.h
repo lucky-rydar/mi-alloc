@@ -22,7 +22,18 @@ struct block
     bool is_used;
 };
 
+struct mem_info
+{
+    size_t free_mem;
+    size_t used_mem;
+    size_t size;
+    size_t* mem;
+};
+
+// prints out debug info about the memory
 void dump(size_t from, size_t to);
+struct mem_info get_mem_info();
+
 void* alloc(size_t s);
 void del(void* p);
 

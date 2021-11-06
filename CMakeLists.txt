@@ -2,6 +2,27 @@ project(mi-alloc)
 
 cmake_minimum_required(VERSION 3.8)
 
-include_directories(src/)
+set(DIRS 
+    "src/"
+    "test/"
+    "lib/googletest/googletest/include"
+)
 
-add_executable(${CMAKE_PROJECT_NAME} src/main.cpp src/alloc.c)
+include_directories(${DIRS})
+
+add_library(liballoc src/alloc.c)
+add_executable(${CMAKE_PROJECT_NAME} src/main.cpp)
+target_link_libraries(${CMAKE_PROJECT_NAME} liballoc)
+
+
+# tests
+add_subdirectory(lib/googletest)
+
+include_directories(lib/googletest/googletest/include)
+
+file(GLOB TEST_SRCS "test/*.cpp")
+
+add_executable(gtest_run ${TEST_SRCS})
+target_link_libraries(gtest_run liballoc)
+
+target_link_libraries(gtest_run gtest_main)
