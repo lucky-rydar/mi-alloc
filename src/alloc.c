@@ -170,6 +170,8 @@ void del(void* p) {
     }
 
     struct block* b = p - sizeof(struct block);
+    size_t b_size = block_size(b);
+
     struct block* next = b->next;
     if(next->is_used) {
         b->is_used = false;
@@ -178,6 +180,8 @@ void del(void* p) {
         select_fist_used_for(b);
         block_set_zero(b);
     }
+
+    free_mem += b_size;
 }
 
 struct mem_info get_mem_info() {
