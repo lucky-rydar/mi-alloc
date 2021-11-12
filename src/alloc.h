@@ -39,6 +39,9 @@ struct mem_info get_mem_info();
 void* alloc(size_t s);
 void del(void* p);
 
+// it clears the hole heap memory
+void clear();
+
 #ifdef __cplusplus
 }
 #endif

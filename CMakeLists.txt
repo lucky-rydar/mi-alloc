@@ -27,5 +27,5 @@ add_executable(gtest_run ${TEST_SRCS})
 target_link_libraries(gtest_run liballoc_test)
 target_link_libraries(gtest_run gtest_main)
 
-target_compile_options(liballoc_test PRIVATE "-DDEFAULT_SIZE=64")
-target_compile_options(gtest_run PRIVATE "-DDEFAULT_SIZE=64")
+target_compile_options(liballoc_test PRIVATE "-DDEFAULT_SIZE=1024")
+target_compile_options(gtest_run PRIVATE "-DDEFAULT_SIZE=1024")
