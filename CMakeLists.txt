@@ -10,10 +10,15 @@ set(DIRS
 
 include_directories(${DIRS})
 
-add_library(liballoc src/alloc.c)
-add_executable(${CMAKE_PROJECT_NAME} src/main.cpp)
-target_link_libraries(${CMAKE_PROJECT_NAME} liballoc)
+# build lib
+set(LIB_MIALLOC_SRCS
+    "src/alloc.c"
+)
 
+set(DEFAULT_SIZE 1024)
+
+add_library(libmialloc ${LIB_MIALLOC_SRCS})
+target_compile_options(libmialloc PRIVATE "-DDEFAULT_SIZE=${DEFAULT_SIZE}")
 
 # tests
 add_subdirectory(lib/googletest)
@@ -21,11 +26,9 @@ include_directories(lib/googletest/googletest/include)
 
 file(GLOB TEST_SRCS "test/*.cpp")
 
-add_library(liballoc_test src/alloc.c)
 add_executable(gtest_run ${TEST_SRCS})
 
-target_link_libraries(gtest_run liballoc_test)
 target_link_libraries(gtest_run gtest_main)
+target_link_libraries(gtest_run libmialloc)
 
-target_compile_options(liballoc_test PRIVATE "-DDEFAULT_SIZE=1024")
-target_compile_options(gtest_run PRIVATE "-DDEFAULT_SIZE=1024")
+target_compile_options(gtest_run PRIVATE "-DDEFAULT_SIZE=${DEFAULT_SIZE}")
