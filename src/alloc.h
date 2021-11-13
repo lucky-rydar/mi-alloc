@@ -15,31 +15,33 @@ extern "C" {
 #define DEFAULT_SIZE 1024
 #endif
 
-// the size of block and 1 byte variable
-#define MIN_VAR_SIZE (sizeof(struct block) + 1)
+#define SIZEOF_STRUCT_BLOCK sizeof(block_t)
 
-struct block
+// the size of block and 1 byte variable
+#define MIN_VAR_SIZE (SIZEOF_STRUCT_BLOCK + 1)
+
+typedef struct
 {
     void* next;
     bool is_used;
-};
+} block_t;
 
-struct mem_info
+typedef struct
 {
     size_t free_mem;
     size_t used_mem;
     size_t size;
-    size_t* mem;
-};
+    uint8_t* mem;
+} mem_info_t;
 
-// prints out debug info about the memory
+// prints out debug info about the memory (for debug mainly)
 void dump(size_t from, size_t to);
-struct mem_info get_mem_info();
+mem_info_t get_mem_info();
 
 void* alloc(size_t s);
 void del(void* p);
 
-// it clears the hole heap memory
+// it clears the hole heap memory (not recommended to use)
 void clear();
 
 #ifdef __cplusplus

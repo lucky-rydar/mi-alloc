@@ -11,7 +11,7 @@ void* using = mem;
 // addres of the last element in mem
 void* last = mem + DEFAULT_SIZE - 1;
 
-void block_set_zero(struct block* b) {
+void block_set_zero(block_t* b) {
     void* local_last;
     
     if(b->next == NULL) {
@@ -20,14 +20,14 @@ void block_set_zero(struct block* b) {
         local_last = b->next;
     }
 
-    for(uint8_t* data = (void*)b + sizeof(struct block);
-        data < local_last;
+    for(uint8_t* data = (void*)b + SIZEOF_STRUCT_BLOCK;
+        data < (uint8_t*)local_last;
         data++) {
         *data = 0;
     }
 }
 
-void block_set_next(struct block* b, void* next) {
+void block_set_next(block_t* b, void* next) {
     if(next == NULL || next > last) {
         b->next = NULL;
     } else {
@@ -36,11 +36,11 @@ void block_set_next(struct block* b, void* next) {
 }
 
 // connects all the next block to this if they are free
-void select_fist_used_for(struct block* b) {
+void select_fist_used_for(block_t* b) {
     if(b->next == NULL)
         return;
 
-    struct block* first_unused = b->next;
+    block_t* first_unused = b->next;
     for(;;) {
         if(first_unused == NULL) {
             b->next = NULL;
@@ -54,24 +54,31 @@ void select_fist_used_for(struct block* b) {
     b->next = first_unused;
 }
 
-void* data_by_block(struct block* b) {
-    return (void*)b + sizeof(struct block);
+void* data_by_block(block_t* b) {
+    return (void*)b + SIZEOF_STRUCT_BLOCK;
+}
+
+/**
+ * this function is created to return real next address
+ * for example if next is null it must be first address
+ * after memory ends
+ */
+void* get_real_next(block_t* b) {
+    if(b->next == NULL) {
+        return mem + DEFAULT_SIZE;
+    } else {
+        return b->next;
+    }
 }
 
 // size of non block space
-size_t block_data_size(struct block* b) {
-    if(b->next != NULL)
-        return (size_t)b->next - (size_t)data_by_block(b);
-    else
-        return (size_t)(mem + DEFAULT_SIZE) - (size_t)data_by_block(b);
+size_t block_data_size(block_t* b) {
+    return (size_t)get_real_next(b) - (size_t)data_by_block(b);
 }
 
 // size of a full block
-size_t block_size(struct block* b) {
-    if(b->next != NULL)
-        return (size_t)b->next - (size_t)b;
-    else
-        return (size_t)(mem + DEFAULT_SIZE) - (size_t)b;
+size_t block_size(block_t* b) {
+    return (size_t)get_real_next(b) - (size_t)b;
 }
 
 void dump(size_t from, size_t to) {
@@ -84,80 +91,99 @@ void dump(size_t from, size_t to) {
     }
     printf("\n");
 
-    struct block* b = (struct block*)mem;
+    block_t* b = (block_t*)mem;
     for( ; b->next != NULL; ) {
         size_t distance = (size_t)b->next - (size_t)b;
-        size_t block_size = sizeof(struct block);
+        size_t block_size = SIZEOF_STRUCT_BLOCK;
         printf("%p?%d %d:%d\n", b, b->is_used, distance, distance - block_size);
         b = b->next;   
     }
 }
 
+/**
+ * So, it is needed to check some situations 
+ * 1) [free enough][used]
+ *    ^
+ * 
+ * 2) [free and points to null]
+ *    ^
+ *
+ * get address of next block starts
+ *     if it is defined so it is the same
+ *         like this:
+ *         [block][next block]
+ *                ^
+ *                just the address of the next block
+ * 
+ *     else if null it is first not available address
+ *         like this:
+ *         [allocator memory][other memory]
+ *                           ^
+ *                           it starts here
+ * 
+ *
+ * After getting next address it is needed to check
+ * if it is available to allocate requested memory and
+ * block_size + 1 byte.
+ * 
+ * If it is possible, so create new block and set next
+ * to the new free block allocated like this:
+ *     before:
+ *         [free + block_size * 2 + 1(min)][used]
+ *     after:
+ *         [requested + block][block_size + 1(min)][used]
+ *         ^
+ *         return this pointer
+ */
 void* alloc(size_t s) {
-    if(free_mem < s + sizeof(struct block))
+    if(free_mem < s + SIZEOF_STRUCT_BLOCK)
         return NULL;
 
-    if(using + sizeof(struct block) + s > last) {
+    if(using + SIZEOF_STRUCT_BLOCK + s >= last) {
         using = mem;
     }
     
-    struct block* b = using;
-    for(size_t i = 0; i < DEFAULT_SIZE / (sizeof(struct block) + 1) + 1; i++) {
+    block_t* b = using;
+    for(size_t i = 0; i < (DEFAULT_SIZE / MIN_VAR_SIZE) + 1; i++) {
         if(b->is_used) {
-            b = b->next;
-            continue;
-        } else if(!b->is_used) {
-            if(b->next == NULL && block_data_size(b) >= s) {
+            if(b->next != NULL)
+                b = b->next;
+            else if(b-> next == NULL || (size_t)b->next > (size_t)mem + DEFAULT_SIZE)
+                b = (block_t*)mem;
+        } else {
+            // connect with forward free blocks
+            select_fist_used_for(b);
+
+            size_t d_size = block_data_size(b);
+            if(d_size == s) {
+                // just mark used and return
                 b->is_used = true;
-                
-                //block_set_next(b, (void*)b + sizeof(struct block) + s);
-                b->next = (void*)b + sizeof(struct block) + s;
-                
-                struct block* next = (void*)b->next;
-                next->is_used = false;
 
-                //block_set_next(next, NULL);
-                next->next = NULL;
-                
-                free_mem -= s + sizeof(struct block);
-                using = (void*)b + sizeof(struct block) + s;
+                free_mem -= block_size(b);
                 return data_by_block(b);
-            } else if(b->next != NULL) {
-                // there are block after this
-                select_fist_used_for(b);
-                block_set_zero(b);
+            } else if(d_size >= s + MIN_VAR_SIZE) {
+                // it is needed to divide the block
+                
+                // init divided free block
+                void* after_next = b->next;
+                block_t* divided_free_block = (void*)b + SIZEOF_STRUCT_BLOCK + s;
+                divided_free_block->next = after_next;
+                divided_free_block->is_used = false;
 
-                size_t b_size = block_size(b);
-                size_t d_size = block_data_size(b);
-                if(d_size < s) {
+                // init needed block
+                b->is_used = true;
+                b->next = divided_free_block;
+
+                free_mem -= block_size(b);
+
+                return data_by_block(b);
+            } else {
+                // size is nought enough
+                if(b->next != NULL)
                     b = b->next;
-                    continue;
-                }
-
-                if(b_size > sizeof(struct block) * 2 + s + 1) {
-                    // there are enought space to allocate
-                    // memory for current request and +1 byte
-                    
-                    // save pointer to the next block
-                    void* next_after_free = b->next;
-
-                    // allocate memory for this request
-                    b->is_used = true;
-                    //block_set_next(b, (void*)b + sizeof(struct block) + s);
-                    b->next = (void*)b + sizeof(struct block) + s;
-
-                    // init next block of free memory between current and next
-                    struct block* next = (void*)b->next;
-                    next->is_used = false;
-                    //block_set_next(next, next_after_free);
-                    next->next = next_after_free;
-                    
-                    free_mem -= s + sizeof(struct block);
-                    return data_by_block(b);
-                } else {
-                    b = b->next;
-                    continue;
-                }
+                else if(b-> next == NULL || (size_t)b->next > (size_t)mem + DEFAULT_SIZE)
+                    b = (block_t*)mem;
+                continue;
             }
         }
     }
@@ -165,25 +191,22 @@ void* alloc(size_t s) {
 }
 
 void del(void* p) {
-    if(p == NULL || p < (void*)mem || p >= mem + DEFAULT_SIZE) {
+    if(p == NULL || p < (void*)mem || p >= (void*)mem + DEFAULT_SIZE) {
         return;
     }
 
-    struct block* b = p - sizeof(struct block);
+    block_t* b = p - SIZEOF_STRUCT_BLOCK;
     b->is_used = false;
     size_t b_size = block_size(b);
-    printf("this ptr %p\n", b);
-    printf("next ptr %p\n", b->is_used);
 
     select_fist_used_for(b);
     block_set_zero(b);
 
-    printf("inner size: %d\n", b_size);
     free_mem += b_size;
 }
 
-struct mem_info get_mem_info() {
-    struct mem_info ret = {
+mem_info_t get_mem_info() {
+    mem_info_t ret = {
         .free_mem = free_mem,
         .used_mem = used_mem,
         .size = mem_size,

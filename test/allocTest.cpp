@@ -16,7 +16,7 @@ TEST(Alloc, allocate1)
     *var = g;
     EXPECT_EQ(*var, g);
 
-    struct mem_info info = get_mem_info();
+    mem_info_t info = get_mem_info();
     EXPECT_EQ(info.free_mem, DEFAULT_SIZE - def_block_size - sizeof(int));
     del(var);
     info = get_mem_info();
@@ -36,7 +36,7 @@ TEST(Alloc, allocate_arr)
     EXPECT_EQ(arr[1], 456);
     EXPECT_EQ(arr[2], 789);
 
-    struct mem_info info = get_mem_info();
+    mem_info_t info = get_mem_info();
     EXPECT_EQ(info.free_mem, DEFAULT_SIZE - alloc_size - def_block_size);
     del(arr);
 
@@ -65,8 +65,8 @@ TEST(Alloc, current_offset_moves)
 
     void* partition2 = alloc((DEFAULT_SIZE / 2) - def_block_size);
 
-    mem_info info = get_mem_info();
-    EXPECT_EQ(partition2 - def_block_size, (void*)info.mem);
+    mem_info_t info = get_mem_info();
+    EXPECT_EQ((void*)((size_t)partition2 - (size_t)def_block_size), (void*)info.mem);
 }
 
 TEST(Alloc, empty_size)
@@ -89,20 +89,19 @@ TEST(Alloc, random_test)
 
     vector<allocated_info_t> pointers;
 
-    size_t num_tests = 1000000;
+    size_t num_tests = 10000;
     for(size_t i = 0; i < num_tests; i++) {
         bool to_alloc = rand() % 2;
-        cout << to_alloc << endl;
         if(to_alloc) {
             size_t alloc_size = rand() % (DEFAULT_SIZE / 10);
+
             auto p = alloc(alloc_size);
             if(p != nullptr) {
                 pointers.push_back({p, alloc_size});
-                cout << "allocated: " << alloc_size << endl;
             }
 
         } else {
-            // do del
+            // do delete
 
             if(pointers.size() > 0) {
                 size_t index_to_del = rand() % pointers.size();
@@ -115,13 +114,12 @@ TEST(Alloc, random_test)
 
                 auto mem_info2 = get_mem_info();
 
-                // here there are problems with allocating because somewhere it is overwrites memory
-                ASSERT_EQ(mem_info2.free_mem, mem_info1.free_mem + s + sizeof(struct block));
+                ASSERT_EQ(mem_info2.free_mem, mem_info1.free_mem + s + SIZEOF_STRUCT_BLOCK);
             }
         }
 
         auto mem_info = get_mem_info();
-        if(mem_info.free_mem > 1024)
+        if(mem_info.free_mem > DEFAULT_SIZE)
             ASSERT_TRUE(false);
     }
 }
