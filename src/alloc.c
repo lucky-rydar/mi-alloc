@@ -54,6 +54,7 @@ void select_fist_used_for(block_t* b) {
     b->next = first_unused;
 }
 
+#define DATA_BY_BLOCK(b) ((void*)b + SIZEOF_STRUCT_BLOCK)
 void* data_by_block(block_t* b) {
     return (void*)b + SIZEOF_STRUCT_BLOCK;
 }
@@ -72,11 +73,13 @@ void* get_real_next(block_t* b) {
 }
 
 // size of non block space
+#define BLOCK_DATA_SIZE(b) ((size_t)get_real_next(b) - (size_t)data_by_block(b))
 size_t block_data_size(block_t* b) {
     return (size_t)get_real_next(b) - (size_t)data_by_block(b);
 }
 
 // size of a full block
+#define BLOCK_SIZE(b) ((size_t)get_real_next(b) - (size_t)b)
 size_t block_size(block_t* b) {
     return (size_t)get_real_next(b) - (size_t)b;
 }
@@ -154,13 +157,13 @@ void* alloc(size_t s) {
             // connect with forward free blocks
             select_fist_used_for(b);
 
-            size_t d_size = block_data_size(b);
+            size_t d_size = BLOCK_DATA_SIZE(b);
             if(d_size == s) {
                 // just mark used and return
                 b->is_used = true;
 
-                free_mem -= block_size(b);
-                return data_by_block(b);
+                free_mem -= BLOCK_SIZE(b);
+                return DATA_BY_BLOCK(b);
             } else if(d_size >= s + MIN_VAR_SIZE) {
                 // it is needed to divide the block
                 
@@ -174,9 +177,8 @@ void* alloc(size_t s) {
                 b->is_used = true;
                 b->next = divided_free_block;
 
-                free_mem -= block_size(b);
-
-                return data_by_block(b);
+                free_mem -= BLOCK_SIZE(b);
+                return DATA_BY_BLOCK(b);
             } else {
                 // size is nought enough
                 if(b->next != NULL)
@@ -197,10 +199,9 @@ void del(void* p) {
 
     block_t* b = p - SIZEOF_STRUCT_BLOCK;
     b->is_used = false;
-    size_t b_size = block_size(b);
+    size_t b_size = BLOCK_SIZE(b);
 
     select_fist_used_for(b);
-    block_set_zero(b);
 
     free_mem += b_size;
 }
